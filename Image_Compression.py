@@ -39,7 +39,7 @@ def load_images(imagepaths: List[str]) -> np.array:
     for path in enumerate(imagepaths):
         try:
             if get_image_size(imagepaths, path[0]) == (m, n):
-                img =  mpimg.imread(path[1])
+                img = mpimg.imread(path[1])
                 img = img.reshape(1, m*n)
                 X = np.concatenate((X, img), axis=0)
         except:
@@ -61,6 +61,12 @@ def plot_eigens(eig: np.array) -> None:
     plt.figure()
     plt.plot(eig)
     plt.title("Eigen Values")
+
+
+def compress_images(X: np.array, U: np.array, N_COMPONENTS: int) -> np.array:
+
+    A = U.T
+    print(A.shape)
 
 if __name__ == '__main__':
 
@@ -85,4 +91,7 @@ if __name__ == '__main__':
     X = load_images(imagepaths)
     eig, U = compute_eigens(X)
     plot_eigens(eig)
+
+    compress_images(X, U, 5)
+
     plt.show()
