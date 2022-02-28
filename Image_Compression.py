@@ -19,7 +19,7 @@ class PCA:
         self.eig, self.U = self.compute()
     
     
-    def compute_eigens(self) -> None:
+    def compute_eigens(self) -> Tuple[np.array]:
 
         CM = np.cov(self.X.T)
         eig, U = np.linalg.eig(CM)
