@@ -11,6 +11,56 @@ from prettytable import PrettyTable
 import warnings
 
 
+class PCA:
+    def __init__(self, X: np.array, n_components: int) -> None:
+        assert len(X.shape) == 2
+        self.X = X
+        self.n = n_components
+        self.eig, self.U = self.compute()
+    
+    
+    def compute_eigens(self) -> None:
+
+        CM = np.cov(self.X.T)
+        eig, U = np.linalg.eig(CM)
+        
+        return eig, U
+    
+    
+    def plot_eigens(self) -> None:
+
+        plt.figure()
+        plt.plot(self.eig)
+        plt.title("Eigen Values")
+    
+    
+    def transform(self) -> np.array:
+
+        A = self.U.T
+        Y = A[:self.n, :].dot(self.X.T)
+
+        return Y
+    
+    
+    def reconstruct_images(self, Y: np.array) -> np.array:
+
+        A = self.U[:, :self.n]
+        X = A.dot(Y)
+        X = X.T
+        X = X.astype(np.float32)
+
+        return X
+    
+    
+    def calculate_loss(self, Xr: np.array) -> Tuple[float]:
+    
+        SE = (self.X - Xr)**2
+        MSE = np.mean(SE)
+        RMSE = np.sqrt(MSE)
+
+        return RMSE, MSE
+    
+    
 def load_image_path(PATH: str, ext: str='pgm') -> List[str]:
 
     a = []
@@ -53,40 +103,36 @@ def load_images(imagepaths: List[str]) -> np.array:
     return X
 
 
-def compute_eigens(X: np.array) -> Tuple[np.array]:
+def plot_losses(X: np.array, shape: int, n: int) -> None:
 
-    assert len(X.shape) == 2
-    CM = np.cov(X.T)
-    eig, U = np.linalg.eig(CM)
-    
-    return eig, U
+    mse_losses = []
+    rmse_losses = []
+    assert n <= shape
 
-
-def plot_eigens(eig: np.array) -> None:
+    for i in tqdm(range(1, n+1)):
+        pca = PCA(X, i)
+        Y = pca.transform()
+        Xr = pca.reconstruct_images(Y)
+        rmse, mse = pca.calculate_loss(Xr)
+        mse_losses.append(mse)
+        rmse_losses.append(rmse)
 
     plt.figure()
-    plt.plot(eig)
-    plt.title("Eigen Values")
+    plt.plot(range(1, n+1), mse_losses)
+    plt.title("Mean Squared Error vs No of Principal Components Selected")
+    plt.xlabel("No of Principal Components")
+    plt.ylabel("Mean Squared Error")
 
+    print()
+    table = PrettyTable()
 
-def compress_images(X: np.array, U: np.array, N_COMPONENTS: int) -> np.array:
+    table.add_column("No. of PC", range(1, n+1))
+    table.add_column("MSE", mse_losses)
+    table.add_column("RMSE", rmse_losses)
 
-    A = U.T
-    Y = A[:N_COMPONENTS, :].dot(X.T)
-
-    return Y
-
-
-def reconstruct_images(Y: np.array, U: np.array, N_COMPONENTS: int) -> np.array:
-
-    A = U[:, :N_COMPONENTS]
-    X = A.dot(Y)
-    X = X.T
-    X = X.astype(np.float32)
-
-    return X
-
-
+    print(table)
+        
+        
 def disp_recon_image(X: np.array, nrow: int, ncol: int, index: int) -> None:
 
     img = X[index].reshape(m, n)
@@ -95,45 +141,6 @@ def disp_recon_image(X: np.array, nrow: int, ncol: int, index: int) -> None:
     plt.imshow(img)
     plt.colorbar()
     plt.title("Reconstructed Image")
-
-
-def calculate_loss(X: np.array, Xr: np.array) -> Tuple[float]:
-    
-    SE = (X - Xr)**2
-    MSE = np.mean(SE)
-    RMSE = np.sqrt(MSE)
-
-    return RMSE, MSE
-
-
-def plot_losses(X: np.array, U: np.array, N_COMPONENTS: int) -> None:
-
-    mse_losses = []
-    rmse_losses = []
-    n_features = U.shape[1]
-    assert N_COMPONENTS <= n_features
-    
-    for i in tqdm(range(1, N_COMPONENTS+1)):
-        Y = compress_images(X, U, i)
-        Xr = reconstruct_images(Y, U, i)
-        rmse, mse = calculate_loss(X, Xr)
-        mse_losses.append(mse)
-        rmse_losses.append(rmse)
-    
-    plt.figure()
-    plt.plot(range(1, N_COMPONENTS+1), mse_losses)
-    plt.title("Mean Squared Error vs No of Principal Components Selected")
-    plt.xlabel("No of Principal Components")
-    plt.ylabel("Mean Squared Error")
-
-    print()
-    table = PrettyTable()
-
-    table.add_column("No. of PC", range(1, N_COMPONENTS+1))
-    table.add_column("MSE", mse_losses)
-    table.add_column("RMSE", rmse_losses)
-
-    print(table)
 
 
 if __name__ == '__main__':
@@ -161,21 +168,23 @@ if __name__ == '__main__':
     disp_image(imagepaths, 0)
     
     X = load_images(imagepaths)
-    eig, U = compute_eigens(X)
-    plot_eigens(eig)
     
-    Y = compress_images(X, U, 5)
+    pca = PCA(X, N_COMPONENTS)
+    
+    pca.plot_eigens()
+    
+    Y = pca.transform()
 
-    Xr = reconstruct_images(Y, U, 5)
+    Xr = pca.reconstruct_images(Y)
 
     disp_recon_image(Xr, m, n, 0)
 
-    rmse, mse = calculate_loss(X, Xr)
+    rmse, mse = pca.calculate_loss(Xr)
 
     print()
     print(F"RMSE: {rmse}, MSE: {mse}")
     print()
 
-    plot_losses(X, U, 10)
+    plot_losses(X, m*n, 10)
 
     plt.show()
